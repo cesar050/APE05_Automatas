@@ -40,10 +40,12 @@ public class AfndService {
                 Map<String, Object> stateTransitions = automata.getTransitions()
                         .getOrDefault(state, Collections.emptyMap());
 
-                Object destinations = stateTransitions.get(symbol);
-                if (destinations instanceof List<?> destList) {
-                    destList.forEach(d -> nextStates.add(d.toString()));
-                }
+                    Object destinations = stateTransitions.get(symbol);
+                        if (destinations instanceof List<?> destList) {
+                            destList.forEach(d -> nextStates.add(d.toString()));
+                        } else if (destinations instanceof String dest) {
+                            nextStates.add(dest);
+                        }
             }
 
             currentStates = nextStates;

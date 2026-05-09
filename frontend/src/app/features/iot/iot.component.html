@@ -1,0 +1,658 @@
+<div class="page-header">
+  <h1 class="page-title">Telemetría IoT</h1>
+  <p class="page-subtitle">
+    AFND — Patrón: <code>HDR (TEMP | HUM)* CRC</code>
+  </p>
+</div>
+
+<div class="tabs">
+  <button class="tab" [class.active]="activeTab === 'afnd'" (click)="activeTab = 'afnd'">AFND Original</button>
+  <button class="tab" [class.active]="activeTab === 'afd'"  (click)="setTabAfd()">AFD por Subconjuntos</button>
+  <button class="tab" [class.active]="activeTab === 'min'"  (click)="setTabMin()">AFD Minimizado</button>
+  <button class="tab" [class.active]="activeTab === 'verify'" (click)="setTabVerify()">Verificación</button>
+</div>
+
+<!-- ══ TAB AFND ══ -->
+<div *ngIf="activeTab === 'afnd'">
+  <div class="card">
+    <div class="card-title">⑀ Definición Formal del AFND</div>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ afnd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ afnd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ afnd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ afnd.accepting.join(', ') }}</strong></div>
+    </div>
+    <div class="section-title">Tabla de Transiciones δ: Q × Σ → P(Q)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of afnd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of afnd.states">
+          <td class="state-cell">
+            {{ state === afnd.initial ? '→' : '' }}
+            {{ afnd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of afnd.alphabet">
+            <span [class.empty-cell]="!getAfndTrans(state, sym)">
+              {{ getAfndTrans(state, sym) || '∅' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama de Transición AFND</div>
+    <div class="diagram-wrap">
+      <svg width="780" height="380" viewBox="0 0 780 380">
+        <defs>
+          <marker id="afnd-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="afnd-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="afnd-red" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#f85149"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="180" x2="52" y2="180"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#afnd-blue)"/>
+
+        <line x1="108" y1="180" x2="252" y2="180"
+              [attr.stroke]="isAfndEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q0','q1') ? 'url(#afnd-green)' : 'url(#afnd-blue)'"/>
+        <text x="180" y="168" text-anchor="middle" font-size="12" fill="#8b949e">HDR</text>
+
+        <path d="M 265 152 C 265 115, 295 115, 295 152"
+              fill="none"
+              [attr.stroke]="isAfndLoopActive('q1') ? '#3fb950' : '#f85149'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndLoopActive('q1') ? 'url(#afnd-green)' : 'url(#afnd-red)'"/>
+        <text x="280" y="100" text-anchor="middle" font-size="11" fill="#f85149">TEMP, HUM</text>
+
+        <line x1="308" y1="168" x2="494" y2="118"
+              [attr.stroke]="isAfndEdgeActive('q1','q2') ? '#3fb950' : '#f85149'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q1','q2') ? 'url(#afnd-green)' : 'url(#afnd-red)'"/>
+        <text x="400" y="128" text-anchor="middle" font-size="11" fill="#f85149">TEMP, HUM</text>
+
+        <line x1="520" y1="132" x2="520" y2="284"
+              [attr.stroke]="isAfndEdgeActive('q2','q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q2','q3') ? 'url(#afnd-green)' : 'url(#afnd-blue)'"/>
+        <text x="542" y="214" text-anchor="middle" font-size="12" fill="#8b949e">CRC</text>
+
+        <circle cx="80" cy="180" r="26"
+          [attr.fill]="isAfndStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="280" cy="180" r="26"
+          [attr.fill]="isAfndStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="280" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="520" cy="106" r="26"
+          [attr.fill]="isAfndStateActive('q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q2') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="520" y="111" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q2') ? '#3fb950' : '#c9d1d9'">q2</text>
+
+        <circle cx="520" cy="310" r="30" fill="none"
+          [attr.stroke]="isAfndStateActive('q3') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="520" cy="310" r="26"
+          [attr.fill]="isAfndStateActive('q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q3') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="520" y="315" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q3') ? '#3fb950' : '#c9d1d9'">q3</text>
+
+        <text x="390" y="355" text-anchor="middle" font-size="11" fill="#f85149">
+          ↑ No determinismo: TEMP/HUM desde q1 van simultáneamente a q1 Y a q2 (rojo)
+        </text>
+      </svg>
+    </div>
+    <div *ngIf="afndCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ afndCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simulación AFND</div>
+    <div class="input-area">
+      <label>Cadena de entrada (separada por comas)</label>
+      <input [(ngModel)]="inputRaw" placeholder="ej: HDR, TEMP, CRC"
+             (keyup.enter)="simulate()"/>
+      <button class="btn-primary" (click)="simulate()">Simular</button>
+      <button class="btn-secondary" (click)="clear()">Limpiar</button>
+    </div>
+    <div class="examples">
+      <span>Ejemplos:</span>
+      <button class="chip" *ngFor="let e of examples" (click)="loadExample(e)">
+        {{ e.join(', ') }}
+      </button>
+    </div>
+    <ng-container *ngIf="afndResult">
+      <div [class]="afndResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ afndResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <div class="section-title" style="margin-top:16px">Traza de Ejecución</div>
+      <table>
+        <thead>
+          <tr><th>Paso</th><th>Símbolo</th><th>Estados activos</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let step of afndResult.steps; let i = index"
+              [class.trace-row-final]="i === afndResult.steps.length - 1"
+              [class.trace-row-active]="i === afndCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ '{' }} {{ step.activeStates.join(', ') }} {{ '}' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB AFD POR SUBCONJUNTOS ══ -->
+<div *ngIf="activeTab === 'afd' && conversionResult">
+
+  <div class="card">
+    <div class="card-title">⚙ AFD por Construcción de Subconjuntos</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Cada estado del AFD corresponde a un conjunto de estados del AFND.
+      Los ∅ del AFND se reemplazan por el estado trampa <strong>qE</strong>.
+    </p>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ conversionResult.afd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ conversionResult.afd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ conversionResult.afd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ conversionResult.afd.accepting.join(', ') }}</strong></div>
+    </div>
+    <div class="section-title">Tabla de Subconjuntos — Cada fila es una iteración del algoritmo</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Conjunto AFND</th>
+          <th>Estado AFD</th>
+          <th *ngFor="let s of afnd.alphabet">{{ s }}</th>
+          <th>¿Final?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of conversionResult.subsetTable">
+          <td class="state-cell">{{ '{' }} {{ row['stateSet'] }} {{ '}' }}</td>
+          <td class="state-cell">{{ row['state'] }}</td>
+          <td *ngFor="let s of afnd.alphabet">{{ row[s] }}</td>
+          <td>
+            <span *ngIf="conversionResult.afd.accepting.includes(row['state'])" class="check">★</span>
+            <span *ngIf="!conversionResult.afd.accepting.includes(row['state'])" class="cross">—</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama AFD por Subconjuntos</div>
+    <div class="diagram-wrap">
+      <svg width="900" height="420" viewBox="0 0 900 420">
+        <defs>
+          <marker id="afd-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="afd-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="afd-gray" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#484f58"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="220" x2="54" y2="220"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#afd-blue)"/>
+
+        <line x1="106" y1="208" x2="232" y2="172"
+              [attr.stroke]="isAfdEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q0','q1') ? 'url(#afd-green)' : 'url(#afd-blue)'"/>
+        <text x="162" y="178" text-anchor="middle" font-size="12" fill="#8b949e">HDR</text>
+
+        <line x1="92" y1="238" x2="428" y2="322"
+              [attr.stroke]="isAfdEdgeActive('q0','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q0','qE') ? 'url(#afd-green)' : 'url(#afd-gray)'"/>
+        <text x="230" y="302" text-anchor="middle" font-size="10" fill="#484f58">TEMP, HUM, CRC</text>
+
+        <line x1="286" y1="146" x2="432" y2="94"
+              [attr.stroke]="isAfdEdgeActive('q1','q1_q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q1','q1_q2') ? 'url(#afd-green)' : 'url(#afd-blue)'"/>
+        <text x="352" y="104" text-anchor="middle" font-size="11" fill="#8b949e">TEMP, HUM</text>
+
+        <line x1="262" y1="186" x2="432" y2="316"
+              [attr.stroke]="isAfdEdgeActive('q1','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q1','qE') ? 'url(#afd-green)' : 'url(#afd-gray)'"/>
+        <text x="320" y="270" text-anchor="middle" font-size="10" fill="#484f58">HDR, CRC</text>
+
+        <path d="M 445 52 C 445 18, 475 18, 475 52"
+              fill="none"
+              [attr.stroke]="isAfdLoopActive('q1_q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdLoopActive('q1_q2') ? 'url(#afd-green)' : 'url(#afd-blue)'"/>
+        <text x="460" y="12" text-anchor="middle" font-size="10" fill="#8b949e">TEMP, HUM</text>
+
+        <line x1="488" y1="92" x2="672" y2="206"
+              [attr.stroke]="isAfdEdgeActive('q1_q2','q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q1_q2','q3') ? 'url(#afd-green)' : 'url(#afd-blue)'"/>
+        <text x="592" y="132" text-anchor="middle" font-size="11" fill="#8b949e">CRC</text>
+
+        <line x1="460" y1="106" x2="460" y2="304"
+              [attr.stroke]="isAfdEdgeActive('q1_q2','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q1_q2','qE') ? 'url(#afd-green)' : 'url(#afd-gray)'"/>
+        <text x="484" y="210" text-anchor="middle" font-size="10" fill="#484f58">HDR</text>
+
+        <line x1="674" y1="242" x2="488" y2="324"
+              [attr.stroke]="isAfdEdgeActive('q3','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q3','qE') ? 'url(#afd-green)' : 'url(#afd-gray)'"/>
+        <text x="594" y="302" text-anchor="middle" font-size="10" fill="#484f58">HDR, TEMP, HUM, CRC</text>
+
+        <path d="M 444 318 C 444 284, 474 284, 474 318"
+              fill="none"
+              [attr.stroke]="isAfdLoopActive('qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdLoopActive('qE') ? 'url(#afd-green)' : 'url(#afd-gray)'"/>
+        <text x="460" y="282" text-anchor="middle" font-size="10" fill="#484f58">todo</text>
+
+        <circle cx="80" cy="220" r="26"
+          [attr.fill]="isAfdStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="225" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="260" cy="160" r="26"
+          [attr.fill]="isAfdStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="260" y="165" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="460" cy="80" r="32"
+          [attr.fill]="isAfdStateActive('q1_q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q1_q2') ? '#3fb950' : '#58a6ff'"
+          stroke-width="2" stroke-dasharray="6,2"/>
+        <text x="460" y="77" text-anchor="middle" font-size="11" font-weight="600"
+          [attr.fill]="isAfdStateActive('q1_q2') ? '#3fb950' : '#79c0ff'">q1_q2</text>
+        <text x="460" y="92" text-anchor="middle" font-size="9"
+          [attr.fill]="isAfdStateActive('q1_q2') ? '#3fb950' : '#484f58'">{{ '{' }}q1,q2{{ '}' }}</text>
+
+        <circle cx="700" cy="220" r="30" fill="none"
+          [attr.stroke]="isAfdStateActive('q3') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="700" cy="220" r="26"
+          [attr.fill]="isAfdStateActive('q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q3') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="700" y="225" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q3') ? '#3fb950' : '#c9d1d9'">q3</text>
+
+        <circle cx="460" cy="344" r="26"
+          [attr.fill]="isAfdStateActive('qE') ? '#1a4731' : '#1a1a2e'"
+          stroke="#484f58" stroke-dasharray="5,3" stroke-width="1.5"/>
+        <text x="460" y="349" text-anchor="middle" font-size="13" font-weight="600"
+          fill="#484f58">qE</text>
+        <text x="460" y="368" text-anchor="middle" font-size="10" fill="#484f58">(trampa)</text>
+
+        <text x="450" y="400" text-anchor="middle" font-size="11" fill="#79c0ff">
+          q1_q2 = estado compuesto {{ '{' }}q1,q2{{ '}' }} generado por la construcción de subconjuntos
+        </text>
+      </svg>
+    </div>
+    <div *ngIf="afdCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ afdCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Transiciones del AFD δ: Q × Σ → Q</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of conversionResult.afd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of conversionResult.afd.states">
+          <td class="state-cell">
+            {{ state === conversionResult.afd.initial ? '→' : '' }}
+            {{ conversionResult.afd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of conversionResult.afd.alphabet">
+            {{ getAfdTrans(state, sym) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simular sobre el AFD</div>
+    <div class="input-area">
+      <input [(ngModel)]="inputRaw" placeholder="ej: HDR, TEMP, CRC"
+             (keyup.enter)="simulateAfd()"/>
+      <button class="btn-primary" (click)="simulateAfd()">Simular</button>
+      <button class="btn-secondary" (click)="afdResult = null; afdCurrentStep = null">Limpiar</button>
+    </div>
+    <ng-container *ngIf="afdResult">
+      <div [class]="afdResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ afdResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Paso</th><th>Símbolo</th><th>Estado activo</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let step of afdResult.steps; let i = index"
+              [class.trace-row-final]="i === afdResult.steps.length - 1"
+              [class.trace-row-active]="i === afdCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ step.activeStates.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB AFD MINIMIZADO ══ -->
+<div *ngIf="activeTab === 'min' && minimizationResult">
+
+  <div class="card">
+    <div class="card-title">◈ AFD Minimizado</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Estados equivalentes del AFD fueron fusionados en uno solo.
+      El AFD minimizado reconoce exactamente el mismo lenguaje con el menor número de estados posible.
+    </p>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ minimizationResult.minimizedAfd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ minimizationResult.minimizedAfd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ minimizationResult.minimizedAfd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ minimizationResult.minimizedAfd.accepting.join(', ') }}</strong></div>
+    </div>
+    <div class="section-title">Grupos de Estados Equivalentes Fusionados</div>
+    <div class="groups-wrap">
+      <div class="group-chip" *ngFor="let group of minimizationResult.equivalenceGroups; let i = index">
+        <span class="group-label">Grupo {{ i + 1 }}</span>
+        {{ '{' }} {{ group.join(', ') }} {{ '}' }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Equivalencia — Iteraciones del Algoritmo de Partición</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Cada iteración muestra cómo se refinan los grupos. Los estados en el mismo grupo son equivalentes.
+      Esta es la tabla que debes transcribir en el documento de la práctica.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Iteración</th><th>Grupos de la Partición</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let iter of minimizationResult.equivalenceTable">
+          <td class="state-cell">{{ iter['iteration'] }}</td>
+          <td>
+            <span class="group-inline" *ngFor="let g of iter['groups']">
+              {{ '{' }} {{ g.join(', ') }} {{ '}' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Transiciones del AFD Minimizado</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of minimizationResult.minimizedAfd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of minimizationResult.minimizedAfd.states">
+          <td class="state-cell">
+            {{ state === minimizationResult.minimizedAfd.initial ? '→' : '' }}
+            {{ minimizationResult.minimizedAfd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of minimizationResult.minimizedAfd.alphabet">
+            {{ getMinTrans(state, sym) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama AFD Minimizado</div>
+    <div class="diagram-wrap">
+      <svg width="900" height="420" viewBox="0 0 900 420">
+        <defs>
+          <marker id="min-iot-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="min-iot-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="min-iot-gray" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#484f58"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="220" x2="54" y2="220"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#min-iot-blue)"/>
+
+        <line x1="106" y1="208" x2="232" y2="172"
+              [attr.stroke]="isMinEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q0','q1') ? 'url(#min-iot-green)' : 'url(#min-iot-blue)'"/>
+        <text x="162" y="178" text-anchor="middle" font-size="12" fill="#8b949e">HDR</text>
+
+        <line x1="92" y1="238" x2="428" y2="322"
+              [attr.stroke]="isMinEdgeActive('q0','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q0','qE') ? 'url(#min-iot-green)' : 'url(#min-iot-gray)'"/>
+        <text x="230" y="302" text-anchor="middle" font-size="10" fill="#484f58">TEMP, HUM, CRC</text>
+
+        <line x1="286" y1="146" x2="432" y2="94"
+              [attr.stroke]="isMinEdgeActive('q1','q1_q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q1','q1_q2') ? 'url(#min-iot-green)' : 'url(#min-iot-blue)'"/>
+        <text x="352" y="104" text-anchor="middle" font-size="11" fill="#8b949e">TEMP, HUM</text>
+
+        <line x1="262" y1="186" x2="432" y2="316"
+              [attr.stroke]="isMinEdgeActive('q1','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q1','qE') ? 'url(#min-iot-green)' : 'url(#min-iot-gray)'"/>
+        <text x="320" y="270" text-anchor="middle" font-size="10" fill="#484f58">HDR, CRC</text>
+
+        <path d="M 445 52 C 445 18, 475 18, 475 52"
+              fill="none"
+              [attr.stroke]="isMinLoopActive('q1_q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinLoopActive('q1_q2') ? 'url(#min-iot-green)' : 'url(#min-iot-blue)'"/>
+        <text x="460" y="12" text-anchor="middle" font-size="10" fill="#8b949e">TEMP, HUM</text>
+
+        <line x1="488" y1="92" x2="672" y2="206"
+              [attr.stroke]="isMinEdgeActive('q1_q2','q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q1_q2','q3') ? 'url(#min-iot-green)' : 'url(#min-iot-blue)'"/>
+        <text x="592" y="132" text-anchor="middle" font-size="11" fill="#8b949e">CRC</text>
+
+        <line x1="460" y1="106" x2="460" y2="304"
+              [attr.stroke]="isMinEdgeActive('q1_q2','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q1_q2','qE') ? 'url(#min-iot-green)' : 'url(#min-iot-gray)'"/>
+        <text x="484" y="210" text-anchor="middle" font-size="10" fill="#484f58">HDR</text>
+
+        <line x1="674" y1="242" x2="488" y2="324"
+              [attr.stroke]="isMinEdgeActive('q3','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q3','qE') ? 'url(#min-iot-green)' : 'url(#min-iot-gray)'"/>
+        <text x="594" y="302" text-anchor="middle" font-size="10" fill="#484f58">HDR, TEMP, HUM, CRC</text>
+
+        <path d="M 444 318 C 444 284, 474 284, 474 318"
+              fill="none"
+              [attr.stroke]="isMinLoopActive('qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinLoopActive('qE') ? 'url(#min-iot-green)' : 'url(#min-iot-gray)'"/>
+        <text x="460" y="282" text-anchor="middle" font-size="10" fill="#484f58">todo</text>
+
+        <circle cx="80" cy="220" r="26"
+          [attr.fill]="isMinStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="225" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="260" cy="160" r="26"
+          [attr.fill]="isMinStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="260" y="165" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="460" cy="80" r="32"
+          [attr.fill]="isMinStateActive('q1_q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q1_q2') ? '#3fb950' : '#58a6ff'"
+          stroke-width="2" stroke-dasharray="6,2"/>
+        <text x="460" y="77" text-anchor="middle" font-size="11" font-weight="600"
+          [attr.fill]="isMinStateActive('q1_q2') ? '#3fb950' : '#79c0ff'">q1_q2</text>
+        <text x="460" y="92" text-anchor="middle" font-size="9"
+          [attr.fill]="isMinStateActive('q1_q2') ? '#3fb950' : '#484f58'">{{ '{' }}q1,q2{{ '}' }}</text>
+
+        <circle cx="700" cy="220" r="30" fill="none"
+          [attr.stroke]="isMinStateActive('q3') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="700" cy="220" r="26"
+          [attr.fill]="isMinStateActive('q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q3') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="700" y="225" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q3') ? '#3fb950' : '#c9d1d9'">q3</text>
+
+        <circle cx="460" cy="344" r="26"
+          [attr.fill]="isMinStateActive('qE') ? '#1a4731' : '#1a1a2e'"
+          stroke="#484f58" stroke-dasharray="5,3" stroke-width="1.5"/>
+        <text x="460" y="349" text-anchor="middle" font-size="13" font-weight="600"
+          fill="#484f58">qE</text>
+        <text x="460" y="368" text-anchor="middle" font-size="10" fill="#484f58">(trampa)</text>
+      </svg>
+    </div>
+    <div *ngIf="minCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ minCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simular sobre el AFD Minimizado</div>
+    <div class="input-area">
+      <input [(ngModel)]="inputRaw" placeholder="ej: HDR, TEMP, CRC"
+             (keyup.enter)="simulateMin()"/>
+      <button class="btn-primary" (click)="simulateMin()">Simular</button>
+      <button class="btn-secondary" (click)="minResult = null; minCurrentStep = null">Limpiar</button>
+    </div>
+    <ng-container *ngIf="minResult">
+      <div [class]="minResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ minResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Paso</th><th>Símbolo</th><th>Estado activo</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let step of minResult.steps; let i = index"
+              [class.trace-row-final]="i === minResult.steps.length - 1"
+              [class.trace-row-active]="i === minCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ step.activeStates.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB VERIFICACIÓN ══ -->
+<div *ngIf="activeTab === 'verify'">
+  <div class="card">
+    <div class="card-title">✓ Verificación de Equivalencia — 20 Cadenas de Prueba</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Los tres autómatas deben producir exactamente el mismo resultado para cada cadena,
+      demostrando experimentalmente que son equivalentes.
+    </p>
+    <button class="btn-primary" (click)="runVerification()" style="margin-bottom:16px">
+      Ejecutar Verificación Completa
+    </button>
+    <ng-container *ngIf="verificationResult">
+      <div class="badge badge-accept" *ngIf="allEquivalent">
+        ✓ Los tres autómatas son equivalentes — {{ verificationResult.length }} cadenas verificadas
+      </div>
+      <div class="badge badge-reject" *ngIf="!allEquivalent">
+        ✗ Se encontraron diferencias entre los autómatas
+      </div>
+      <table style="margin-top:16px">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cadena</th>
+            <th>Longitud</th>
+            <th>Tipo</th>
+            <th>AFND</th>
+            <th>AFD</th>
+            <th>Minimizado</th>
+            <th>¿Equivalentes?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of verificationResult; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td><code>{{ row.input.join(', ') || 'ε (vacía)' }}</code></td>
+            <td>{{ row.input.length }}</td>
+            <td>{{ testStringTypes[i] }}</td>
+            <td><span [class]="row.afnd ? 'check' : 'cross'">{{ row.afnd ? '✓' : '✗' }}</span></td>
+            <td><span [class]="row.afd ? 'check' : 'cross'">{{ row.afd ? '✓' : '✗' }}</span></td>
+            <td><span [class]="row.minimized ? 'check' : 'cross'">{{ row.minimized ? '✓' : '✗' }}</span></td>
+            <td>
+              <span [class]="row.equivalent ? 'badge badge-eq' : 'badge badge-neq'">
+                {{ row.equivalent ? '✓ Sí' : '✗ No' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>

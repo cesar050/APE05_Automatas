@@ -1,0 +1,704 @@
+<div class="page-header">
+  <h1 class="page-title">Secuencias Genéticas</h1>
+  <p class="page-subtitle">
+    AFND — Patrón: <code>K G X* F</code> donde X ∈ {{ '{' }}K, G, A, F{{ '}' }}
+  </p>
+</div>
+
+<div class="tabs">
+  <button class="tab" [class.active]="activeTab === 'afnd'" (click)="activeTab = 'afnd'">AFND Original</button>
+  <button class="tab" [class.active]="activeTab === 'afd'"  (click)="setTabAfd()">AFD por Subconjuntos</button>
+  <button class="tab" [class.active]="activeTab === 'min'"  (click)="setTabMin()">AFD Minimizado</button>
+  <button class="tab" [class.active]="activeTab === 'verify'" (click)="setTabVerify()">Verificación</button>
+</div>
+
+<!-- ══ TAB AFND ══ -->
+<div *ngIf="activeTab === 'afnd'">
+
+  <div class="card">
+    <div class="card-title">⑀ Definición Formal del AFND</div>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ afnd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ afnd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ afnd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ afnd.accepting.join(', ') }}</strong></div>
+    </div>
+
+    <div class="section-title">Leyenda del Alfabeto</div>
+    <div class="definition-grid" style="margin-bottom:20px">
+      <div class="def-item"><span>K</span><strong>Lisina</strong></div>
+      <div class="def-item"><span>G</span><strong>Glicina</strong></div>
+      <div class="def-item"><span>A</span><strong>Alanina</strong></div>
+      <div class="def-item"><span>F</span><strong>Fenilalanina</strong></div>
+    </div>
+
+    <div class="section-title">Tabla de Transiciones δ: Q × Σ → P(Q)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of afnd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of afnd.states">
+          <td class="state-cell">
+            {{ state === afnd.initial ? '→' : '' }}
+            {{ afnd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of afnd.alphabet">
+            <span [class.empty-cell]="!getAfndTrans(state, sym)">
+              {{ getAfndTrans(state, sym) || '∅' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama de Transición AFND</div>
+    <div class="diagram-wrap">
+      <svg width="820" height="380" viewBox="0 0 820 380">
+        <defs>
+          <marker id="gen-afnd-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="gen-afnd-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="gen-afnd-red" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#f85149"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="180" x2="52" y2="180"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#gen-afnd-blue)"/>
+
+        <line x1="108" y1="180" x2="232" y2="180"
+              [attr.stroke]="isAfndEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q0','q1') ? 'url(#gen-afnd-green)' : 'url(#gen-afnd-blue)'"/>
+        <text x="170" y="168" text-anchor="middle" font-size="12" fill="#8b949e">K</text>
+
+        <line x1="288" y1="180" x2="392" y2="180"
+              [attr.stroke]="isAfndEdgeActive('q1','q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q1','q2') ? 'url(#gen-afnd-green)' : 'url(#gen-afnd-blue)'"/>
+        <text x="340" y="168" text-anchor="middle" font-size="12" fill="#8b949e">G</text>
+
+        <path d="M 405 152 C 405 115, 435 115, 435 152"
+              fill="none"
+              [attr.stroke]="isAfndLoopActive('q2') ? '#3fb950' : '#f85149'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndLoopActive('q2') ? 'url(#gen-afnd-green)' : 'url(#gen-afnd-red)'"/>
+        <text x="420" y="100" text-anchor="middle" font-size="11" fill="#f85149">K, G, A</text>
+
+        <line x1="448" y1="168" x2="568" y2="118"
+              [attr.stroke]="isAfndEdgeActive('q2','q3') ? '#3fb950' : '#f85149'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q2','q3') ? 'url(#gen-afnd-green)' : 'url(#gen-afnd-red)'"/>
+        <text x="518" y="128" text-anchor="middle" font-size="11" fill="#f85149">K, G, A</text>
+
+        <line x1="596" y1="106" x2="716" y2="106"
+              [attr.stroke]="isAfndEdgeActive('q3','q4') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfndEdgeActive('q3','q4') ? 'url(#gen-afnd-green)' : 'url(#gen-afnd-blue)'"/>
+        <text x="656" y="94" text-anchor="middle" font-size="12" fill="#8b949e">F</text>
+
+        <circle cx="80" cy="180" r="26"
+          [attr.fill]="isAfndStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="260" cy="180" r="26"
+          [attr.fill]="isAfndStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="260" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="420" cy="180" r="26"
+          [attr.fill]="isAfndStateActive('q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q2') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="420" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q2') ? '#3fb950' : '#c9d1d9'">q2</text>
+
+        <circle cx="580" cy="106" r="26"
+          [attr.fill]="isAfndStateActive('q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q3') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="580" y="111" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q3') ? '#3fb950' : '#c9d1d9'">q3</text>
+
+        <circle cx="740" cy="106" r="30" fill="none"
+          [attr.stroke]="isAfndStateActive('q4') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="740" cy="106" r="26"
+          [attr.fill]="isAfndStateActive('q4') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfndStateActive('q4') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="740" y="111" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfndStateActive('q4') ? '#3fb950' : '#c9d1d9'">q4</text>
+
+        <text x="410" y="340" text-anchor="middle" font-size="11" fill="#f85149">
+          ↑ No determinismo: K/G/A desde q2 van simultáneamente a q2 (loop) Y a q3 (rojo)
+        </text>
+      </svg>
+    </div>
+    <div *ngIf="afndCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ afndCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simulación AFND</div>
+    <div class="input-area">
+      <label>Cadena de entrada (separada por comas)</label>
+      <input [(ngModel)]="inputRaw" placeholder="ej: K, G, A, F"
+             (keyup.enter)="simulate()"/>
+      <button class="btn-primary" (click)="simulate()">Simular</button>
+      <button class="btn-secondary" (click)="clear()">Limpiar</button>
+    </div>
+    <div class="examples">
+      <span>Ejemplos:</span>
+      <button class="chip" *ngFor="let e of examples" (click)="loadExample(e)">
+        {{ e.join(', ') }}
+      </button>
+    </div>
+    <ng-container *ngIf="afndResult">
+      <div [class]="afndResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ afndResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <div class="section-title" style="margin-top:16px">Traza de Ejecución</div>
+      <table>
+        <thead>
+          <tr><th>Paso</th><th>Símbolo</th><th>Estados activos</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let step of afndResult.steps; let i = index"
+              [class.trace-row-final]="i === afndResult.steps.length - 1"
+              [class.trace-row-active]="i === afndCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ '{' }} {{ step.activeStates.join(', ') }} {{ '}' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB AFD POR SUBCONJUNTOS ══ -->
+<div *ngIf="activeTab === 'afd' && conversionResult">
+
+  <div class="card">
+    <div class="card-title">⚙ AFD por Construcción de Subconjuntos</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Cada estado del AFD corresponde a un conjunto de estados del AFND.
+      Los ∅ del AFND se reemplazan por el estado trampa <strong>qE</strong>.
+    </p>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ conversionResult.afd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ conversionResult.afd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ conversionResult.afd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ conversionResult.afd.accepting.join(', ') }}</strong></div>
+    </div>
+    <div class="section-title">Tabla de Subconjuntos</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Conjunto AFND</th>
+          <th>Estado AFD</th>
+          <th *ngFor="let s of afnd.alphabet">{{ s }}</th>
+          <th>¿Final?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of conversionResult.subsetTable">
+          <td class="state-cell">{{ '{' }} {{ row['stateSet'] }} {{ '}' }}</td>
+          <td class="state-cell">{{ row['state'] }}</td>
+          <td *ngFor="let s of afnd.alphabet">{{ row[s] }}</td>
+          <td>
+            <span *ngIf="conversionResult.afd.accepting.includes(row['state'])" class="check">★</span>
+            <span *ngIf="!conversionResult.afd.accepting.includes(row['state'])" class="cross">—</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama AFD por Subconjuntos</div>
+    <div class="diagram-wrap">
+      <svg width="900" height="440" viewBox="0 0 900 440">
+        <defs>
+          <marker id="gen-afd-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="gen-afd-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="gen-afd-gray" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#484f58"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="240" x2="54" y2="240"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#gen-afd-blue)"/>
+
+        <line x1="106" y1="228" x2="214" y2="192"
+              [attr.stroke]="isAfdEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q0','q1') ? 'url(#gen-afd-green)' : 'url(#gen-afd-blue)'"/>
+        <text x="154" y="198" text-anchor="middle" font-size="12" fill="#8b949e">K</text>
+
+        <line x1="90" y1="258" x2="452" y2="352"
+              [attr.stroke]="isAfdEdgeActive('q0','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q0','qE') ? 'url(#gen-afd-green)' : 'url(#gen-afd-gray)'"/>
+        <text x="240" y="330" text-anchor="middle" font-size="10" fill="#484f58">G, A, F</text>
+
+        <line x1="266" y1="166" x2="374" y2="130"
+              [attr.stroke]="isAfdEdgeActive('q1','q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q1','q2') ? 'url(#gen-afd-green)' : 'url(#gen-afd-blue)'"/>
+        <text x="318" y="136" text-anchor="middle" font-size="12" fill="#8b949e">G</text>
+
+        <line x1="244" y1="206" x2="452" y2="344"
+              [attr.stroke]="isAfdEdgeActive('q1','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q1','qE') ? 'url(#gen-afd-green)' : 'url(#gen-afd-gray)'"/>
+        <text x="320" y="296" text-anchor="middle" font-size="10" fill="#484f58">K, A, F</text>
+
+        <line x1="432" y1="108" x2="546" y2="90"
+              [attr.stroke]="isAfdEdgeActive('q2','q2_q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q2','q2_q3') ? 'url(#gen-afd-green)' : 'url(#gen-afd-blue)'"/>
+        <text x="488" y="88" text-anchor="middle" font-size="11" fill="#8b949e">K, G, A</text>
+
+        <line x1="402" y1="146" x2="456" y2="334"
+              [attr.stroke]="isAfdEdgeActive('q2','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q2','qE') ? 'url(#gen-afd-green)' : 'url(#gen-afd-gray)'"/>
+        <text x="418" y="244" text-anchor="middle" font-size="10" fill="#484f58">F</text>
+
+        <path d="M 562 48 C 562 14, 596 14, 596 48"
+              fill="none"
+              [attr.stroke]="isAfdLoopActive('q2_q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdLoopActive('q2_q3') ? 'url(#gen-afd-green)' : 'url(#gen-afd-blue)'"/>
+        <text x="579" y="10" text-anchor="middle" font-size="10" fill="#8b949e">K, G, A</text>
+
+        <line x1="614" y1="88" x2="734" y2="162"
+              [attr.stroke]="isAfdEdgeActive('q2_q3','q4') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isAfdEdgeActive('q2_q3','q4') ? 'url(#gen-afd-green)' : 'url(#gen-afd-blue)'"/>
+        <text x="684" y="112" text-anchor="middle" font-size="12" fill="#8b949e">F</text>
+
+        <line x1="738" y1="206" x2="510" y2="348"
+              [attr.stroke]="isAfdEdgeActive('q4','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdEdgeActive('q4','qE') ? 'url(#gen-afd-green)' : 'url(#gen-afd-gray)'"/>
+        <text x="646" y="300" text-anchor="middle" font-size="10" fill="#484f58">K, G, A, F</text>
+
+        <path d="M 464 348 C 464 314, 494 314, 494 348"
+              fill="none"
+              [attr.stroke]="isAfdLoopActive('qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isAfdLoopActive('qE') ? 'url(#gen-afd-green)' : 'url(#gen-afd-gray)'"/>
+        <text x="479" y="312" text-anchor="middle" font-size="10" fill="#484f58">todo</text>
+
+        <circle cx="80" cy="240" r="26"
+          [attr.fill]="isAfdStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="245" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="240" cy="180" r="26"
+          [attr.fill]="isAfdStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="240" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="400" cy="120" r="26"
+          [attr.fill]="isAfdStateActive('q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q2') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="400" y="125" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q2') ? '#3fb950' : '#c9d1d9'">q2</text>
+
+        <circle cx="580" cy="80" r="34"
+          [attr.fill]="isAfdStateActive('q2_q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q2_q3') ? '#3fb950' : '#58a6ff'"
+          stroke-width="2" stroke-dasharray="6,2"/>
+        <text x="580" y="76" text-anchor="middle" font-size="11" font-weight="600"
+          [attr.fill]="isAfdStateActive('q2_q3') ? '#3fb950' : '#79c0ff'">q2_q3</text>
+        <text x="580" y="92" text-anchor="middle" font-size="9"
+          [attr.fill]="isAfdStateActive('q2_q3') ? '#3fb950' : '#484f58'">{{ '{' }}q2,q3{{ '}' }}</text>
+
+        <circle cx="760" cy="180" r="30" fill="none"
+          [attr.stroke]="isAfdStateActive('q4') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="760" cy="180" r="26"
+          [attr.fill]="isAfdStateActive('q4') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isAfdStateActive('q4') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="760" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isAfdStateActive('q4') ? '#3fb950' : '#c9d1d9'">q4</text>
+
+        <circle cx="480" cy="374" r="26"
+          [attr.fill]="isAfdStateActive('qE') ? '#1a4731' : '#1a1a2e'"
+          stroke="#484f58" stroke-dasharray="5,3" stroke-width="1.5"/>
+        <text x="480" y="379" text-anchor="middle" font-size="13" font-weight="600"
+          fill="#484f58">qE</text>
+        <text x="480" y="398" text-anchor="middle" font-size="10" fill="#484f58">(trampa)</text>
+
+        <text x="450" y="425" text-anchor="middle" font-size="11" fill="#79c0ff">
+          q2_q3 = estado compuesto {{ '{' }}q2,q3{{ '}' }} generado por la construcción de subconjuntos
+        </text>
+      </svg>
+    </div>
+    <div *ngIf="afdCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ afdCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Transiciones del AFD δ: Q × Σ → Q</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of conversionResult.afd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of conversionResult.afd.states">
+          <td class="state-cell">
+            {{ state === conversionResult.afd.initial ? '→' : '' }}
+            {{ conversionResult.afd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of conversionResult.afd.alphabet">
+            {{ getAfdTrans(state, sym) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simular sobre el AFD</div>
+    <div class="input-area">
+      <input [(ngModel)]="inputRaw" placeholder="ej: K, G, A, F"
+             (keyup.enter)="simulateAfd()"/>
+      <button class="btn-primary" (click)="simulateAfd()">Simular</button>
+      <button class="btn-secondary" (click)="afdResult = null; afdCurrentStep = null">Limpiar</button>
+    </div>
+    <ng-container *ngIf="afdResult">
+      <div [class]="afdResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ afdResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Paso</th><th>Símbolo</th><th>Estado activo</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let step of afdResult.steps; let i = index"
+              [class.trace-row-final]="i === afdResult.steps.length - 1"
+              [class.trace-row-active]="i === afdCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ step.activeStates.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB AFD MINIMIZADO ══ -->
+<div *ngIf="activeTab === 'min' && minimizationResult">
+
+  <div class="card">
+    <div class="card-title">◈ AFD Minimizado</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Estados equivalentes del AFD fueron fusionados en uno solo.
+      El AFD minimizado reconoce exactamente el mismo lenguaje con el menor número de estados posible.
+    </p>
+    <div class="definition-grid">
+      <div class="def-item"><span>Q — Estados</span><strong>{{ minimizationResult.minimizedAfd.states.join(', ') }}</strong></div>
+      <div class="def-item"><span>Σ — Alfabeto</span><strong>{{ minimizationResult.minimizedAfd.alphabet.join(', ') }}</strong></div>
+      <div class="def-item"><span>q₀ — Estado inicial</span><strong>{{ minimizationResult.minimizedAfd.initial }}</strong></div>
+      <div class="def-item"><span>F — Aceptación</span><strong>{{ minimizationResult.minimizedAfd.accepting.join(', ') }}</strong></div>
+    </div>
+    <div class="section-title">Grupos de Estados Equivalentes Fusionados</div>
+    <div class="groups-wrap">
+      <div class="group-chip" *ngFor="let group of minimizationResult.equivalenceGroups; let i = index">
+        <span class="group-label">Grupo {{ i + 1 }}</span>
+        {{ '{' }} {{ group.join(', ') }} {{ '}' }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Equivalencia — Iteraciones del Algoritmo de Partición</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Cada iteración muestra cómo se refinan los grupos.
+      Esta es la tabla que debes transcribir en el documento de la práctica.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Iteración</th><th>Grupos de la Partición</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let iter of minimizationResult.equivalenceTable">
+          <td class="state-cell">{{ iter['iteration'] }}</td>
+          <td>
+            <span class="group-inline" *ngFor="let g of iter['groups']">
+              {{ '{' }} {{ g.join(', ') }} {{ '}' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tabla de Transiciones del AFD Minimizado</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th *ngFor="let s of minimizationResult.minimizedAfd.alphabet">{{ s }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let state of minimizationResult.minimizedAfd.states">
+          <td class="state-cell">
+            {{ state === minimizationResult.minimizedAfd.initial ? '→' : '' }}
+            {{ minimizationResult.minimizedAfd.accepting.includes(state) ? '★' : '' }}
+            {{ state }}
+          </td>
+          <td *ngFor="let sym of minimizationResult.minimizedAfd.alphabet">
+            {{ getMinTrans(state, sym) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Diagrama AFD Minimizado</div>
+    <div class="diagram-wrap">
+      <svg width="900" height="440" viewBox="0 0 900 440">
+        <defs>
+          <marker id="min-gen-blue" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#58a6ff"/>
+          </marker>
+          <marker id="min-gen-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#3fb950"/>
+          </marker>
+          <marker id="min-gen-gray" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#484f58"/>
+          </marker>
+        </defs>
+
+        <line x1="28" y1="240" x2="54" y2="240"
+              stroke="#58a6ff" stroke-width="1.5" marker-end="url(#min-gen-blue)"/>
+
+        <line x1="106" y1="228" x2="214" y2="192"
+              [attr.stroke]="isMinEdgeActive('q0','q1') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q0','q1') ? 'url(#min-gen-green)' : 'url(#min-gen-blue)'"/>
+        <text x="154" y="198" text-anchor="middle" font-size="12" fill="#8b949e">K</text>
+
+        <line x1="90" y1="258" x2="452" y2="352"
+              [attr.stroke]="isMinEdgeActive('q0','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q0','qE') ? 'url(#min-gen-green)' : 'url(#min-gen-gray)'"/>
+        <text x="240" y="330" text-anchor="middle" font-size="10" fill="#484f58">G, A, F</text>
+
+        <line x1="266" y1="166" x2="374" y2="130"
+              [attr.stroke]="isMinEdgeActive('q1','q2') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q1','q2') ? 'url(#min-gen-green)' : 'url(#min-gen-blue)'"/>
+        <text x="318" y="136" text-anchor="middle" font-size="12" fill="#8b949e">G</text>
+
+        <line x1="244" y1="206" x2="452" y2="344"
+              [attr.stroke]="isMinEdgeActive('q1','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q1','qE') ? 'url(#min-gen-green)' : 'url(#min-gen-gray)'"/>
+        <text x="320" y="296" text-anchor="middle" font-size="10" fill="#484f58">K, A, F</text>
+
+        <line x1="432" y1="108" x2="546" y2="90"
+              [attr.stroke]="isMinEdgeActive('q2','q2_q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q2','q2_q3') ? 'url(#min-gen-green)' : 'url(#min-gen-blue)'"/>
+        <text x="488" y="88" text-anchor="middle" font-size="11" fill="#8b949e">K, G, A</text>
+
+        <line x1="402" y1="146" x2="456" y2="334"
+              [attr.stroke]="isMinEdgeActive('q2','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q2','qE') ? 'url(#min-gen-green)' : 'url(#min-gen-gray)'"/>
+        <text x="418" y="244" text-anchor="middle" font-size="10" fill="#484f58">F</text>
+
+        <path d="M 562 48 C 562 14, 596 14, 596 48"
+              fill="none"
+              [attr.stroke]="isMinLoopActive('q2_q3') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinLoopActive('q2_q3') ? 'url(#min-gen-green)' : 'url(#min-gen-blue)'"/>
+        <text x="579" y="10" text-anchor="middle" font-size="10" fill="#8b949e">K, G, A</text>
+
+        <line x1="614" y1="88" x2="734" y2="162"
+              [attr.stroke]="isMinEdgeActive('q2_q3','q4') ? '#3fb950' : '#58a6ff'"
+              stroke-width="1.5"
+              [attr.marker-end]="isMinEdgeActive('q2_q3','q4') ? 'url(#min-gen-green)' : 'url(#min-gen-blue)'"/>
+        <text x="684" y="112" text-anchor="middle" font-size="12" fill="#8b949e">F</text>
+
+        <line x1="738" y1="206" x2="510" y2="348"
+              [attr.stroke]="isMinEdgeActive('q4','qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinEdgeActive('q4','qE') ? 'url(#min-gen-green)' : 'url(#min-gen-gray)'"/>
+        <text x="646" y="300" text-anchor="middle" font-size="10" fill="#484f58">K, G, A, F</text>
+
+        <path d="M 464 348 C 464 314, 494 314, 494 348"
+              fill="none"
+              [attr.stroke]="isMinLoopActive('qE') ? '#3fb950' : '#484f58'"
+              stroke-width="1" stroke-dasharray="4,3"
+              [attr.marker-end]="isMinLoopActive('qE') ? 'url(#min-gen-green)' : 'url(#min-gen-gray)'"/>
+        <text x="479" y="312" text-anchor="middle" font-size="10" fill="#484f58">todo</text>
+
+        <circle cx="80" cy="240" r="26"
+          [attr.fill]="isMinStateActive('q0') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q0') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="80" y="245" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q0') ? '#3fb950' : '#c9d1d9'">q0</text>
+
+        <circle cx="240" cy="180" r="26"
+          [attr.fill]="isMinStateActive('q1') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q1') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="240" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q1') ? '#3fb950' : '#c9d1d9'">q1</text>
+
+        <circle cx="400" cy="120" r="26"
+          [attr.fill]="isMinStateActive('q2') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q2') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="400" y="125" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q2') ? '#3fb950' : '#c9d1d9'">q2</text>
+
+        <circle cx="580" cy="80" r="34"
+          [attr.fill]="isMinStateActive('q2_q3') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q2_q3') ? '#3fb950' : '#58a6ff'"
+          stroke-width="2" stroke-dasharray="6,2"/>
+        <text x="580" y="76" text-anchor="middle" font-size="11" font-weight="600"
+          [attr.fill]="isMinStateActive('q2_q3') ? '#3fb950' : '#79c0ff'">q2_q3</text>
+        <text x="580" y="92" text-anchor="middle" font-size="9"
+          [attr.fill]="isMinStateActive('q2_q3') ? '#3fb950' : '#484f58'">{{ '{' }}q2,q3{{ '}' }}</text>
+
+        <circle cx="760" cy="180" r="30" fill="none"
+          [attr.stroke]="isMinStateActive('q4') ? '#3fb950' : '#30363d'" stroke-width="1.5"/>
+        <circle cx="760" cy="180" r="26"
+          [attr.fill]="isMinStateActive('q4') ? '#1a4731' : '#161b22'"
+          [attr.stroke]="isMinStateActive('q4') ? '#3fb950' : '#58a6ff'" stroke-width="1.5"/>
+        <text x="760" y="185" text-anchor="middle" font-size="13" font-weight="600"
+          [attr.fill]="isMinStateActive('q4') ? '#3fb950' : '#c9d1d9'">q4</text>
+
+        <circle cx="480" cy="374" r="26"
+          [attr.fill]="isMinStateActive('qE') ? '#1a4731' : '#1a1a2e'"
+          stroke="#484f58" stroke-dasharray="5,3" stroke-width="1.5"/>
+        <text x="480" y="379" text-anchor="middle" font-size="13" font-weight="600"
+          fill="#484f58">qE</text>
+        <text x="480" y="398" text-anchor="middle" font-size="10" fill="#484f58">(trampa)</text>
+      </svg>
+    </div>
+    <div *ngIf="minCurrentStep" class="current-symbol">
+      <span class="section-title">Símbolo actual:</span>
+      <span class="symbol-badge">{{ minCurrentStep.symbol ?? '—' }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▷ Simular sobre el AFD Minimizado</div>
+    <div class="input-area">
+      <input [(ngModel)]="inputRaw" placeholder="ej: K, G, A, F"
+             (keyup.enter)="simulateMin()"/>
+      <button class="btn-primary" (click)="simulateMin()">Simular</button>
+      <button class="btn-secondary" (click)="minResult = null; minCurrentStep = null">Limpiar</button>
+    </div>
+    <ng-container *ngIf="minResult">
+      <div [class]="minResult.accepted ? 'badge badge-accept' : 'badge badge-reject'">
+        {{ minResult.accepted ? '✓ CADENA ACEPTADA' : '✗ CADENA RECHAZADA' }}
+      </div>
+      <table style="margin-top:12px">
+        <thead><tr><th>Paso</th><th>Símbolo</th><th>Estado activo</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let step of minResult.steps; let i = index"
+              [class.trace-row-final]="i === minResult.steps.length - 1"
+              [class.trace-row-active]="i === minCurrentStepIndex">
+            <td>{{ i }}</td>
+            <td>{{ step.symbol ?? '—' }}</td>
+            <td>{{ step.activeStates.join(', ') }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ══ TAB VERIFICACIÓN ══ -->
+<div *ngIf="activeTab === 'verify'">
+  <div class="card">
+    <div class="card-title">✓ Verificación de Equivalencia — 20 Cadenas de Prueba</div>
+    <p style="color:#8b949e; font-size:0.85rem; margin-bottom:16px;">
+      Los tres autómatas deben producir exactamente el mismo resultado para cada cadena,
+      demostrando experimentalmente que son equivalentes.
+    </p>
+    <button class="btn-primary" (click)="runVerification()" style="margin-bottom:16px">
+      Ejecutar Verificación Completa
+    </button>
+    <ng-container *ngIf="verificationResult">
+      <div class="badge badge-accept" *ngIf="allEquivalent">
+        ✓ Los tres autómatas son equivalentes — {{ verificationResult.length }} cadenas verificadas
+      </div>
+      <div class="badge badge-reject" *ngIf="!allEquivalent">
+        ✗ Se encontraron diferencias entre los autómatas
+      </div>
+      <table style="margin-top:16px">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cadena</th>
+            <th>Longitud</th>
+            <th>Tipo</th>
+            <th>AFND</th>
+            <th>AFD</th>
+            <th>Minimizado</th>
+            <th>¿Equivalentes?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of verificationResult; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td><code>{{ row.input.join(', ') || 'ε (vacía)' }}</code></td>
+            <td>{{ row.input.length }}</td>
+            <td>{{ testStringTypes[i] }}</td>
+            <td><span [class]="row.afnd ? 'check' : 'cross'">{{ row.afnd ? '✓' : '✗' }}</span></td>
+            <td><span [class]="row.afd ? 'check' : 'cross'">{{ row.afd ? '✓' : '✗' }}</span></td>
+            <td><span [class]="row.minimized ? 'check' : 'cross'">{{ row.minimized ? '✓' : '✗' }}</span></td>
+            <td>
+              <span [class]="row.equivalent ? 'badge badge-eq' : 'badge badge-neq'">
+                {{ row.equivalent ? '✓ Sí' : '✗ No' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
