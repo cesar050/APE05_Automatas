@@ -53,7 +53,7 @@ ng version
 # Clonar el proyecto
 
 ```bash
-git clone [URL_DEL_REPOSITORIO](https://github.com/cesar050/APE05_Automatas.git)
+git clone [https://github.com/cesar050/APE05_Automatas.git]
 ```
 
 Ingresar al proyecto:
